@@ -8,6 +8,9 @@ As hardware I use a RS485 OP-400 optical probe from German Metering and a In-Cir
 is powered via 5V from the Raspberry Pi. The connection is ~30m to my basement where the smart meter is installed. This is the reason
 why I used a RS485 probe instead of a normal UART/TTL/USB probe.
 
+**Important:** You need to align the optical probe so that the cable faces downwards, else the IR reader/writer is not 
+aligned correctly, and you will get bogus results on the tty.
+
 ## Installation
 
 This is a very brief guide, modify it to your needs.
@@ -18,7 +21,7 @@ Clone the repository to your system. On the Loxberry this needs to go into
 First modify the config.py for your needs, particularly check the serial device file and fill in the MQTT credentials, 
 as well as your AES key from Wiener Netze.
 
-Use the `ls /dev/serial-by-id/` to find the correct device file.
+Use the `ls /dev/serial-by-id/` to find the correct device file. You may need to add your user to the `dialout` group to run this application as non-root user, e.g. by `sudo adduser loxberry dialout`.
 
 `nano config.py`
 
