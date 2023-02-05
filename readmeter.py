@@ -43,7 +43,7 @@ class WienerMeterReader:
         if mqtt_pw and mqtt_username:
             self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_pw)
         self._mqtt_client.will_set(
-            f'{self.MQTT_TOPIC}/online', 'false', qos=1, retain=True
+            f'{self.MQTT_TOPIC}/online', 'false', retain=True
         )
         self._mqtt_client.connect(
             host=mqtt_host, port=mqtt_port, keepalive=mqtt_keepalive
@@ -96,8 +96,8 @@ class WienerMeterReader:
         del data['t_ss']
         # publish message for each key/value pair
         for key, value in data.items():
-            ret = self._mqtt_client.publish(f'{self.MQTT_TOPIC}/{key}', value, qos=1)
-            if not ret.is_published():
+            ret = self._mqtt_client.publish(f'{self.MQTT_TOPIC}/{key}', value)
+            if ret[0]:
                 self.logger.error(f"publishing mqtt message {key} failed")
 
     def loop(self):
@@ -105,10 +105,18 @@ class WienerMeterReader:
             self._read_all()
             sleep(0.5)
 
+    def stop(self):
+        self.serial.close()
+        self._mqtt_client.publish(f"{self.MQTT_TOPIC}/online", 'false', retain=True)
+        self._mqtt_client.disconnect()
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARNING)  # don't spam the console
     from config import config
 
     reader = WienerMeterReader(**config)
-    reader.loop()
+    try:
+        reader.loop()
+    except KeyboardInterrupt:
+        reader.stop()

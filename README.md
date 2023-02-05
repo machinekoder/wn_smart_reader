@@ -44,6 +44,8 @@ Type=simple
 ExecStart=/usr/bin/python3 /opt/loxberry/webfrontend/legacy/wn_meter_reader/readmeter.py
 User=loxberry
 LimitMEMLOCK=33554432
+Restart=always
+RuntimeMaxSec=604800
 [Install]
 WantedBy=multi-user.target
 ```
