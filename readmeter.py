@@ -2,12 +2,13 @@ import serial
 import json
 import paho.mqtt.client as mqtt
 from time import sleep
+import logging
 
 from serial import SerialException
 
 from decode_wn_isk_am550_smartmeter import (
     decode_packet,
-    show_data,
+    format_data,
     read_data,
 )
 
@@ -17,9 +18,17 @@ class WienerMeterReader:
     FIRSTBYTE = b'\x7e'
     SECONDBYTE = b'\xa0'
     MQTT_TOPIC = 'energy_meter'
+    logger = logging.getLogger(__name__)
 
     def __init__(
-        self, device='/dev/ttyUSB0', mqtt_username=None, mqtt_pw=None, aes_key=None
+        self,
+        device='/dev/ttyUSB0',
+        mqtt_username=None,
+        mqtt_pw=None,
+        aes_key=None,
+        mqtt_keepalive=30,
+        mqtt_host='localhost',
+        mqtt_port=1883,
     ):
         self.serial = serial.Serial(
             device,
@@ -30,10 +39,16 @@ class WienerMeterReader:
             timeout=0.1,
             exclusive=True,
         )
-        self._mqtt_client = mqtt.Client('readmeter')
+        self._mqtt_client = mqtt.Client('readmeter', clean_session=True)
         if mqtt_pw and mqtt_username:
             self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_pw)
-        self._mqtt_client.connect(host='localhost', port=1883)
+        self._mqtt_client.will_set(
+            f'{self.MQTT_TOPIC}/online', 'false', qos=1, retain=True
+        )
+        self._mqtt_client.connect(
+            host=mqtt_host, port=mqtt_port, keepalive=mqtt_keepalive
+        )
+        self._mqtt_client.publish(f"{self.MQTT_TOPIC}/online", 'true', retain=True)
         self._previous_byte = None
         self.receiving = False
         self._received_data = bytearray()
@@ -45,7 +60,7 @@ class WienerMeterReader:
             try:
                 current_byte = self.serial.read()
             except SerialException as e:
-                print(f"Error reading serial port {e}")
+                self.logger.error(f"Error reading serial port {e}")
                 continue
             if self.receiving:
                 if self._pos < self.MESSAGE_LENGTH:
@@ -55,10 +70,10 @@ class WienerMeterReader:
                     decoded = decode_packet(self._received_data, key=self._aes_key)
                     if decoded:
                         data = read_data(decoded)
-                        show_data(data)
+                        self.logger.info(format_data(data))
                         self._publish_data(data)
                     else:
-                        print("CRC error")
+                        self.logger.error("CRC error")
                     self.receiving = False
                     self._pos = 0
                     self._received_data = bytearray()
@@ -72,9 +87,18 @@ class WienerMeterReader:
             self._previous_byte = current_byte
 
     def _publish_data(self, data):
-        ret = self._mqtt_client.publish(self.MQTT_TOPIC, json.dumps(data))
-        if ret[0]:
-          print("publishing mqtt message failed")
+        # remove individual time fields
+        del data['t_dd']
+        del data['t_mm']
+        del data['t_yyyy']
+        del data['t_hh']
+        del data['t_mi']
+        del data['t_ss']
+        # publish message for each key/value pair
+        for key, value in data.items():
+            ret = self._mqtt_client.publish(f'{self.MQTT_TOPIC}/{key}', value, qos=1)
+            if not ret.is_published():
+                self.logger.error(f"publishing mqtt message {key} failed")
 
     def loop(self):
         while True:
@@ -83,8 +107,8 @@ class WienerMeterReader:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.WARNING)  # don't spam the console
     from config import config
-    reader = WienerMeterReader(
-        **config
-    )
+
+    reader = WienerMeterReader(**config)
     reader.loop()

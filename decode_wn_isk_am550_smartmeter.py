@@ -159,26 +159,11 @@ def read_data(s, device='WN'):
     return data
 
 
-def show_data(data: dict):
-    print(
-        "Output: %10.3fkWh, %10.3fkWh, %10.3fkvarh, %10.3fkvarh, %5dW, %5dW, %5dvar, %5dvar at %02d.%02d.%04d-%02d:%02d:%02d"
-        % (
-            data['a_in_wh'] / 1000.0,
-            data['a_out_wh'] / 1000.0,
-            data['r_in_varh'] / 1000.0,
-            data['r_out_varh'] / 1000.0,
-            data['p_in_w'],
-            data['p_out_w'],
-            data['q_in_var'],
-            data['q_out_var'],
-            data['t_dd'],
-            data['t_mm'],
-            data['t_yyyy'],
-            data['t_hh'],
-            data['t_mi'],
-            data['t_ss'],
-        )
-    )
+def format_data(data: dict):
+    return f"Output: {data['a_in_wh'] / 1000.0:10.3f}kWh, {data['a_out_wh'] / 1000.0:10.3f}kWh, " \
+           f"{data['r_in_varh'] / 1000.0:10.3f}kvarh, {data['r_out_varh'] / 1000.0:10.3f}kvarh, " \
+           f"{data['p_in_w']:5d}W, {data['p_out_w']:5d}W, {data['q_in_var']:5d}var, {data['q_out_var']:5d}var " \
+           f"at {data['t_dd']:02d}.{data['t_mm']:02d}.{data['t_yyyy']:04d}-{data['t_hh']:02d}:{data['t_mi']:02d}:{data['t_ss']:02d}"
 
 
 # dec=decode_packet(bytearray.fromhex(data))
